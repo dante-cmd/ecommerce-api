@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Verify your email{% endblock %}
+{% block header %}Verify your email{% endblock %}
+{% block content %}
+<p>Thank you for registering. Please click the button below to verify your email address:</p>
+<a href="{{ verification_link }}" class="button">Verify email</a>
+<p>If you did not create an account, you can ignore this email.</p>
+{% endblock %}
