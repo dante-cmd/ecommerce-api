@@ -10,6 +10,7 @@ from app.models.order import Order
 from app.models.payment import Payment
 from app.repositories.order_repository import OrderRepository
 from app.repositories.payment_repository import PaymentRepository
+from app.repositories.user_repository import UserRepository
 from app.schemas.payment import PaymentIntentOut
 from app.tasks.email_tasks import send_order_status_email
 
@@ -20,7 +21,12 @@ class PaymentService:
         self.settings = settings
         self.order_repo = OrderRepository(session)
         self.payment_repo = PaymentRepository(session)
+        self.user_repo = UserRepository(session)
         stripe.api_key = settings.stripe_secret_key
+
+    async def _get_user_email(self, user_id: int) -> str:
+        user = await self.user_repo.get_by_id(user_id)
+        return user.email if user else "customer@example.com"
 
     async def create_payment_intent(self, order_id: int, user_id: int) -> PaymentIntentOut:
         order = await self.order_repo.get_by_id_with_items(order_id)
@@ -107,7 +113,8 @@ class PaymentService:
         if order and order.status == "pending":
             order.status = "paid"
             await self.order_repo.update(order)
-            send_order_status_email.delay(order.id, order.status)
+            user_email = await self._get_user_email(order.user_id)
+            send_order_status_email.delay(order.id, order.status, user_email)
 
         return payment
 
@@ -142,6 +149,7 @@ class PaymentService:
         if order:
             order.status = "refunded"
             await self.order_repo.update(order)
-            send_order_status_email.delay(order.id, order.status)
+            user_email = await self._get_user_email(order.user_id)
+            send_order_status_email.delay(order.id, order.status, user_email)
 
         return payment

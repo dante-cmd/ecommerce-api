@@ -58,7 +58,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Content-Security-Policy"] = "default-src 'self'"
+        # Swagger UI loads external JS/CSS from CDNs and uses inline scripts/styles,
+        # so a restrictive CSP breaks /docs, /redoc and /openapi.json.
+        if request.url.path not in {"/docs", "/redoc", "/openapi.json"}:
+            response.headers["Content-Security-Policy"] = "default-src 'self'"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         if settings.is_production:
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"

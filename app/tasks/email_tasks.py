@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
@@ -32,6 +33,11 @@ def _render(template_name: str, context: dict) -> str:
     return template.render(context)
 
 
+def _send(message: MessageSchema) -> None:
+    """Send an email.  Synchronous wrapper used by Celery tasks."""
+    asyncio.run(fm.send_message(message))
+
+
 @celery_app.task(bind=True, max_retries=3)
 def send_verification_email(self, to_email: str, token: str) -> None:
     try:
@@ -43,7 +49,7 @@ def send_verification_email(self, to_email: str, token: str) -> None:
             body=html,
             subtype=MessageType.html,
         )
-        fm.send_sync(message)
+        _send(message)
     except Exception as exc:
         logger.error("verification_email_failed", error=str(exc), email=to_email)
         raise self.retry(exc=exc, countdown=60)
@@ -60,40 +66,39 @@ def send_password_reset_email(self, to_email: str, token: str) -> None:
             body=html,
             subtype=MessageType.html,
         )
-        fm.send_sync(message)
+        _send(message)
     except Exception as exc:
         logger.error("password_reset_email_failed", error=str(exc), email=to_email)
         raise self.retry(exc=exc, countdown=60)
 
 
 @celery_app.task(bind=True, max_retries=3)
-def send_order_status_email(self, order_id: int, status: str) -> None:
+def send_order_status_email(self, order_id: int, status: str, user_email: str) -> None:
     try:
         html = _render("order_status.html", {"order_id": order_id, "status": status})
-        # In production, fetch order email from DB
         message = MessageSchema(
             subject=f"Order #{order_id} status update: {status}",
-            recipients=["customer@example.com"],
+            recipients=[user_email],
             body=html,
             subtype=MessageType.html,
         )
-        fm.send_sync(message)
+        _send(message)
     except Exception as exc:
         logger.error("order_status_email_failed", error=str(exc), order_id=order_id)
         raise self.retry(exc=exc, countdown=60)
 
 
 @celery_app.task(bind=True, max_retries=3)
-def send_order_confirmation_email(self, order_id: int, total: str) -> None:
+def send_order_confirmation_email(self, order_id: int, total: str, user_email: str) -> None:
     try:
         html = _render("order_confirmation.html", {"order_id": order_id, "total": total})
         message = MessageSchema(
             subject=f"Order #{order_id} confirmation",
-            recipients=["customer@example.com"],
+            recipients=[user_email],
             body=html,
             subtype=MessageType.html,
         )
-        fm.send_sync(message)
+        _send(message)
     except Exception as exc:
         logger.error("order_confirmation_email_failed", error=str(exc), order_id=order_id)
         raise self.retry(exc=exc, countdown=60)

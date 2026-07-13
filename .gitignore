@@ -38,3 +38,6 @@ Thumbs.db
 # Docker
 postgres_data/
 minio_data/
+
+# Simulation artifacts
+app/scripts/mailbox/

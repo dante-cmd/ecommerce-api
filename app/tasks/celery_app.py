@@ -10,7 +10,7 @@ celery_app = Celery(
     "ecommerce",
     broker=str(settings.celery_broker_url),
     backend=str(settings.celery_result_backend),
-    include=["app.tasks.email_tasks"],
+    include=["app.tasks.email_tasks", "app.tasks.simulation_tasks"],
 )
 
 celery_app.conf.update(
@@ -23,6 +23,12 @@ celery_app.conf.update(
         "app.tasks.email_tasks.*": {"queue": "emails"},
     },
     task_default_queue="default",
+    beat_schedule={
+        "run-client-simulation-every-5-seconds": {
+            "task": "app.tasks.simulation_tasks.run_client_simulation",
+            "schedule": 5.0,
+        },
+    },
 )
 
 

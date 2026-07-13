@@ -33,7 +33,12 @@ class OrderService:
         self.user_repo = UserRepository(session)
         self.product_repo = ProductRepository(session)
 
+    async def _get_user_email(self, user_id: int) -> str:
+        user = await self.user_repo.get_by_id(user_id)
+        return user.email if user else "customer@example.com"
+
     async def create_order(self, user_id: int, data: OrderCreate) -> Order:
+        user_email = await self._get_user_email(user_id)
         address = await self.user_repo.get_address_by_id(data.shipping_address_id)
         if not address or address.user_id != user_id:
             raise NotFoundException("Shipping address not found")
@@ -97,7 +102,7 @@ class OrderService:
 
         await self.session.flush()
         await self.session.refresh(order, attribute_names=["items"])
-        send_order_confirmation_email.delay(order.id, str(order.total))
+        send_order_confirmation_email.delay(order.id, str(order.total), user_email)
         return order
 
     async def get_order(self, user_id: int, order_id: int, is_admin: bool = False) -> Order:
@@ -129,7 +134,8 @@ class OrderService:
         order.status = data.status
         await self.order_repo.update(order)
         await self.session.refresh(order, attribute_names=["items"])
-        send_order_status_email.delay(order.id, order.status)
+        user_email = await self._get_user_email(order.user_id)
+        send_order_status_email.delay(order.id, order.status, user_email)
         return order
 
     async def cancel_order(self, user_id: int, order_id: int) -> Order:
@@ -148,5 +154,6 @@ class OrderService:
         order.status = "cancelled"
         await self.order_repo.update(order)
         await self.session.refresh(order, attribute_names=["items"])
-        send_order_status_email.delay(order.id, order.status)
+        user_email = await self._get_user_email(order.user_id)
+        send_order_status_email.delay(order.id, order.status, user_email)
         return order

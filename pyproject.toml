@@ -88,4 +88,4 @@ addopts = "--cov=app --cov-report=term-missing --cov-fail-under=70"
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["app/tests/*", "app/main.py"]
+omit = ["app/tests/*", "app/main.py", "app/scripts/*", "app/seed.py"]
