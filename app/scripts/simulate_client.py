@@ -42,6 +42,7 @@ _STREETS = [
     "333 Plum Road", "444 Walnut Blvd", "445 Chestnut Drive",
     "556 Hickory Way", "667 Poplar Court", "778 Dogwood Circle",
 ]
+
 _CITIES = [
     ("Springfield", "IL", "62701"), ("Austin", "TX", "73301"),
     ("Denver", "CO", "80201"), ("Seattle", "WA", "98101"),
@@ -252,7 +253,9 @@ async def simulate(settings: Settings, mailbox_dir: Path) -> None:
                 guest_variant_ids = await pick_variants(session, count=2)
                 for variant_id in guest_variant_ids:
                     await cart_service.add_item(
-                        CartItemCreate(variant_id=variant_id, quantity=random.randint(1, 2)),
+                        CartItemCreate(
+                            variant_id=variant_id, 
+                            quantity=random.randint(1, 2)),
                         session_id=session_id,
                     )
                 print("   Guest cart items added (not checked out)")

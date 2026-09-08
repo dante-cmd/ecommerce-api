@@ -26,7 +26,6 @@ def _get_or_create_session_id(request: Request, response: Response, settings: Se
         )
     return session_id
 
-
 @router.get("", response_model=CartOut)
 async def get_cart(
     db: DbDep,

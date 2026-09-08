@@ -1,0 +1,88 @@
+{
+  "version": "3.0.0",
+  "darkMode": false,
+  "gridEnabling": true,
+  "currentViewName": null,
+  "defaultView": {
+    "detailLevel": "All",
+    "relationshipMode": "All",
+    "tablePositions": [
+      {
+        "name": "users",
+        "schemaName": "public",
+        "x": 12,
+        "y": 12
+      },
+      {
+        "name": "addresses",
+        "schemaName": "public",
+        "x": 584.88232421875,
+        "y": 12
+      },
+      {
+        "name": "categories",
+        "schemaName": "public",
+        "x": 12,
+        "y": 494
+      },
+      {
+        "name": "products",
+        "schemaName": "public",
+        "x": 584.88232421875,
+        "y": 616
+      },
+      {
+        "name": "product_variants",
+        "schemaName": "public",
+        "x": 1217.990234375,
+        "y": 53
+      },
+      {
+        "name": "product_images",
+        "schemaName": "public",
+        "x": 1217.990234375,
+        "y": 387
+      },
+      {
+        "name": "reviews",
+        "schemaName": "public",
+        "x": 1217.990234375,
+        "y": 626
+      },
+      {
+        "name": "carts",
+        "schemaName": "public",
+        "x": 584.88232421875,
+        "y": 378
+      },
+      {
+        "name": "cart_items",
+        "schemaName": "public",
+        "x": 1811.37109375,
+        "y": 12
+      },
+      {
+        "name": "orders",
+        "schemaName": "public",
+        "x": -48,
+        "y": 768
+      },
+      {
+        "name": "order_items",
+        "schemaName": "public",
+        "x": 1811.37109375,
+        "y": 250
+      },
+      {
+        "name": "payments",
+        "schemaName": "public",
+        "x": 1217.990234375,
+        "y": 929
+      }
+    ],
+    "tableGroupCollapseStates": [],
+    "stickyNoteLayouts": [],
+    "referencePaths": []
+  },
+  "views": {}
+}
