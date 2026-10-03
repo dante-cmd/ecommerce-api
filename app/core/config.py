@@ -10,12 +10,13 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     # App
     app_name: str = "E-commerce API"
     environment: Literal["development", "staging", "production"] = "development"
-    debug: bool = Field(default=False)
+    debug: bool = Field(default=False, validation_alias="APP_DEBUG")
     frontend_url: str = "http://localhost:3000"
 
     # Database
@@ -70,7 +71,10 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         """Alembic/seed require a synchronous driver."""
         url = str(self.database_url)
-        return url.replace("postgresql+asyncpg://", "postgresql://")
+        url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+        if not url.startswith("postgresql+"):
+            url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return url
 
     @property
     def is_production(self) -> bool:

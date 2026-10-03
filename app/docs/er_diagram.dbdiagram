@@ -10,74 +10,74 @@
       {
         "name": "users",
         "schemaName": "public",
-        "x": 12,
-        "y": 12
+        "x": -272,
+        "y": -104
       },
       {
         "name": "addresses",
         "schemaName": "public",
-        "x": 584.88232421875,
-        "y": 12
+        "x": 352,
+        "y": -456
       },
       {
         "name": "categories",
         "schemaName": "public",
-        "x": 12,
-        "y": 494
+        "x": -328,
+        "y": 368
       },
       {
         "name": "products",
         "schemaName": "public",
-        "x": 584.88232421875,
-        "y": 616
+        "x": 448,
+        "y": 352
       },
       {
         "name": "product_variants",
         "schemaName": "public",
-        "x": 1217.990234375,
-        "y": 53
+        "x": 808,
+        "y": -352
       },
       {
         "name": "product_images",
         "schemaName": "public",
-        "x": 1217.990234375,
-        "y": 387
+        "x": 1032,
+        "y": 208
       },
       {
         "name": "reviews",
         "schemaName": "public",
-        "x": 1217.990234375,
-        "y": 626
+        "x": -368,
+        "y": -400
       },
       {
         "name": "carts",
         "schemaName": "public",
-        "x": 584.88232421875,
-        "y": 378
+        "x": 360,
+        "y": 48
       },
       {
         "name": "cart_items",
         "schemaName": "public",
-        "x": 1811.37109375,
-        "y": 12
+        "x": 952,
+        "y": -24
       },
       {
         "name": "orders",
         "schemaName": "public",
-        "x": -48,
-        "y": 768
+        "x": -224,
+        "y": 648
       },
       {
         "name": "order_items",
         "schemaName": "public",
-        "x": 1811.37109375,
-        "y": 250
+        "x": 1064,
+        "y": 640
       },
       {
         "name": "payments",
         "schemaName": "public",
-        "x": 1217.990234375,
-        "y": 929
+        "x": 400,
+        "y": 904
       }
     ],
     "tableGroupCollapseStates": [],

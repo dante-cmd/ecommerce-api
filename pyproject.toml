@@ -13,7 +13,7 @@ uvicorn = {extras = ["standard"], version = "^0.32.0"}
 gunicorn = "^23.0.0"
 pydantic = {extras = ["email"], version = "^2.9.0"}
 pydantic-settings = "^2.6.0"
-sqlalchemy = {extras = ["asyncpg"], version = "^2.0.36"}
+sqlalchemy = {extras = ["asyncio", "asyncpg"], version = "^2.0.36"}
 asyncpg = "^0.30.0"
 alembic = "^1.14.0"
 redis = "^5.2.0"

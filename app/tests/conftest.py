@@ -14,6 +14,14 @@ from app.core.security import create_access_token
 from app.main import app
 
 
+CELERY_TASKS_TO_MOCK = (
+    "send_verification_email",
+    "send_password_reset_email",
+    "send_order_status_email",
+    "send_order_confirmation_email",
+)
+
+
 def _get_test_database_url() -> str:
     base_url = os.environ.get(
         "DATABASE_URL",
@@ -49,6 +57,15 @@ def get_test_settings() -> Settings:
         environment="development",
         debug=True,
     )
+
+
+@pytest.fixture(autouse=True)
+def mock_celery_email_tasks(monkeypatch):
+    """Prevent .delay() calls from hitting the real Celery broker during tests."""
+    from app.tasks import email_tasks
+
+    for name in CELERY_TASKS_TO_MOCK:
+        monkeypatch.setattr(getattr(email_tasks, name), "delay", lambda *a, **k: None)
 
 
 @pytest.fixture(scope="session")
