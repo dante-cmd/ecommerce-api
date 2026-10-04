@@ -29,6 +29,10 @@ cp .env.example .env
 docker compose up --build
 ```
 
+En el primer arranque se restaura automáticamente el backup de datos incluido
+(`docker/backup.dump`) y se aplican migraciones + seed. Ver
+[Seed y datos iniciales](#seed-y-datos-iniciales).
+
 Servicios disponibles:
 
 | Servicio | URL |
@@ -69,13 +73,37 @@ poetry install
 poetry run pytest
 ```
 
-## Seed de datos
+## Seed y datos iniciales
 
-El seed de admin/categorías/productos corre automáticamente al levantar `docker compose up`. También puedes ejecutarlo manualmente:
+El proyecto incluye un backup de la base de datos en `docker/backup.dump` que se
+restaura automáticamente la **primera vez** que se levanta el stack (solo cuando
+el volumen de Postgres está vacío). Así, quien clone el repo arranca con datos
+reales en lugar de una BD vacía.
+
+Después de la restauración, el seed de admin/categorías/productos (`app/seed.py`)
+corre automáticamente al levantar `docker compose up`. Es idempotente: salta los
+registros que ya existen gracias al backup. También puedes ejecutarlo manualmente:
 
 ```bash
 docker compose exec api python -m app.seed
 ```
+
+### Regenerar el backup
+
+Cuando quieras actualizar el backup con los datos actuales de tu BD:
+
+```bash
+docker compose exec db sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB"' > docker/backup.dump
+```
+
+Luego commitea el `docker/backup.dump` actualizado. El script
+`docker/restore-backup.sh` (montado en `/docker-entrypoint-initdb.d/`) es el
+encargado de restaurarlo en arranques con volumen fresco, usando
+`pg_restore --clean --if-exists`.
+
+> **Nota:** el backup contiene datos reales, incluidos hashes de contraseñas.
+> Evita publicarlo en repositorios públicos; en ese caso distribúyelo como
+> release o artefacto aparte.
 
 ## Estructura
 

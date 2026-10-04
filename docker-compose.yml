@@ -9,6 +9,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/backup.dump:/backup/backup.dump:ro
+      - ./docker/restore-backup.sh:/docker-entrypoint-initdb.d/restore.sh
     ports:
       - "5432:5432"
     healthcheck:
