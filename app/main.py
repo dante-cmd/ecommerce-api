@@ -103,6 +103,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 
 @app.on_event("shutdown")
+# @app.on_event("shutdown")
 async def shutdown_event():
     await close_redis()
 

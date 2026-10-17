@@ -1,0 +1,162 @@
+%%{init: {'flowchart': {'curve': 'basis'}}}%%
+flowchart TB
+    %% ===================== CLIENTS =====================
+    subgraph CLIENTS["Clients"]
+        WEB["Web Frontend<br/>(React / localhost:3000 in dev)"]
+        ADMIN_UI["Admin / Staff UI"]
+        STRIPE_WEBHOOK_SRC["Stripe Webhooks<br/>(payment_intent.succeeded / failed)"]
+        LIVE_CLIENT["Client Simulation<br/>(app/scripts/live_client.py)"]
+    end
+
+    %% ===================== EDGE =====================
+    subgraph EDGE["Edge Layer (nginx)"]
+        NGINX["ecommerce-nginx<br/>nginx:alpine · ports 80/443<br/>reverse proxy → api:8000<br/>explicit routes: /docs /redoc /metrics"]
+    end
+
+    %% ===================== API APPLICATION =====================
+    subgraph API["API Application (ecommerce-api · FastAPI · uvicorn :8000)"]
+        subgraph MW["Middleware Chain (app/main.py)"]
+            SEC_MW["SecurityHeadersMiddleware<br/>CSP · X-Frame-Options · HSTS"]
+            LOG_MW["LoggingMiddleware<br/>structlog JSON request logs"]
+            CORS_MW["CORSMiddleware<br/>frontend_url origins"]
+            RATE_MW["slowapi Rate Limiter<br/>auth endpoints: 5–10/min"]
+        end
+
+        subgraph ROUTERS["API Routers (app/api/v1)"]
+            AUTH["/api/v1/auth<br/>register · verify-email · login<br/>refresh · logout · password-reset"]
+            USERS["/api/v1/users<br/>profile · address book"]
+            PRODUCTS["/api/v1/products<br/>catalog search · categories · reviews"]
+            CART["/api/v1/cart<br/>items · merge · guest session carts"]
+            ORDERS["/api/v1/orders<br/>create · list · cancel · status"]
+            PAYMENTS["/api/v1/payments<br/>intent · webhook · refund"]
+            ADMIN["/api/v1/admin<br/>orders · stock · dashboard"]
+        end
+
+        DEPS["Dependencies (app/api/v1/deps.py)<br/>DbDep · RedisDep · SettingsDep"]
+        PERMS["Permissions (app/core/permissions.py)<br/>get_current_user · require_admin<br/>require_staff_or_admin · optional user"]
+        JWT_SEC["JWT Security (app/core/security.py)<br/>access 15min · refresh 7d + jti<br/>Redis blacklist check"]
+
+        subgraph SERVICES["Service Layer (app/services)"]
+            AUTH_SVC["AuthService"]
+            USER_SVC["UserService"]
+            PRODUCT_SVC["ProductService<br/>cursor search · rating recompute"]
+            CART_SVC["CartService<br/>stock checks · cart merge"]
+            ORDER_SVC["OrderService<br/>VALID_TRANSITIONS state machine<br/>stock decrement / restore"]
+            PAYMENT_SVC["PaymentService<br/>Stripe intents · webhooks · refunds<br/>idempotency keys"]
+            PRICING_SVC["PricingService<br/>8% tax · free shipping ≥ $50<br/>coupon SAVE10"]
+            DASH_SVC["DashboardService<br/>sales aggregates"]
+        end
+
+        subgraph REPOS["Repository Layer (app/repositories)"]
+            BASE_REPO["BaseRepository[T]<br/>get · create · update · delete"]
+            USER_REPO["UserRepository"]
+            PRODUCT_REPO["ProductRepository"]
+            CART_REPO["CartRepository"]
+            ORDER_REPO["OrderRepository"]
+            PAYMENT_REPO["PaymentRepository"]
+        end
+
+        subgraph MODELS["SQLAlchemy Models (app/models)"]
+            USER_M["User 1—n Address<br/>User 1—1 Cart<br/>User 1—n Order · Review"]
+            PRODUCT_M["Category(self-ref) 1—n Product<br/>Product 1—n Variant · Image · Review"]
+            CART_M["Cart 1—n CartItem n—1 Variant"]
+            ORDER_M["Order 1—n OrderItem n—1 Variant<br/>Order 1—1 Payment"]
+            PAYMENT_M["Payment<br/>unique idempotency_key<br/>provider ids"]
+        end
+
+        SEED["Seed (app/seed.py)<br/>admin user + 500-product catalog"]
+        DOCS["/docs · /redoc · /health · /metrics"]
+    end
+
+    %% ===================== DATA & CACHE =====================
+    subgraph DATA["Data Layer"]
+        POSTGRES[("ecommerce-db<br/>Postgres 16 · :5432<br/>alembic migrations")]
+        REDIS[("ecommerce-redis<br/>Redis 7 · :6379<br/>db0 = Celery broker/result<br/>db1 = token blacklist")]
+        MINIO[("ecommerce-minio<br/>S3-compatible storage :9000<br/>bucket: ecommerce-media")]
+    end
+
+    %% ===================== ASYNC WORKERS =====================
+    subgraph WORKERS["Background Workers"]
+        BEAT["ecommerce-beat<br/>Celery beat · persistent scheduler<br/>simulation every 5s"]
+        WORKER["ecommerce-worker<br/>Celery worker<br/>queues: default · emails · orders"]
+        EMAIL_TASKS["app/tasks/email_tasks.py<br/>verification · password reset<br/>order confirmation · status"]
+        SIM_TASKS["app/tasks/simulation_tasks.py<br/>run_client_simulation"]
+    end
+
+    %% ===================== EXTERNAL =====================
+    subgraph EXTERNAL["External Integrations"]
+        STRIPE["Stripe API<br/>PaymentIntents · Refunds · Webhooks"]
+        SMTP["SMTP Server<br/>(Mailpit in client overlay :1025)<br/>fastapi-mail + Jinja2 templates"]
+    end
+
+    %% ===================== OBSERVABILITY =====================
+    subgraph OBSERVABILITY["Observability"]
+        PROM["Prometheus<br/>/metrics"]
+        SENTRY["Sentry SDK<br/>error tracking"]
+        STRUCTLOG["structlog<br/>structured JSON logs"]
+    end
+
+    %% ===================== CONNECTIONS =====================
+    WEB --> NGINX
+    ADMIN_UI --> NGINX
+    STRIPE_WEBHOOK_SRC -->|"POST /api/v1/payments/webhook<br/>Stripe-Signature"| NGINX
+    LIVE_CLIENT --> NGINX
+
+    NGINX -->|"proxy_pass api:8000"| SEC_MW
+    SEC_MW --> LOG_MW --> CORS_MW --> RATE_MW --> ROUTERS
+    ROUTERS --> DEPS
+    ROUTERS --> PERMS
+    PERMS --> JWT_SEC
+
+    AUTH --> AUTH_SVC
+    USERS --> USER_SVC
+    PRODUCTS --> PRODUCT_SVC
+    CART --> CART_SVC
+    ORDERS --> ORDER_SVC
+    PAYMENTS --> PAYMENT_SVC
+    ADMIN --> DASH_SVC
+    ADMIN --> ORDER_SVC
+    ADMIN --> PAYMENT_SVC
+
+    ORDER_SVC --> PRICING_SVC
+
+    AUTH_SVC --> USER_REPO
+    USER_SVC --> USER_REPO
+    PRODUCT_SVC --> PRODUCT_REPO
+    CART_SVC --> CART_REPO
+    ORDER_SVC --> ORDER_REPO
+    PAYMENT_SVC --> PAYMENT_REPO
+    DASH_SVC --> ORDER_REPO
+
+    USER_REPO --> BASE_REPO
+    PRODUCT_REPO --> BASE_REPO
+    CART_REPO --> BASE_REPO
+    ORDER_REPO --> BASE_REPO
+    PAYMENT_REPO --> BASE_REPO
+
+    BASE_REPO --> USER_M & PRODUCT_M & CART_M & ORDER_M & PAYMENT_M
+    USER_M & PRODUCT_M & CART_M & ORDER_M & PAYMENT_M -->|"asyncpg (SQLAlchemy 2.0 async)"| POSTGRES
+
+    JWT_SEC -->|"token_blacklist:{jti} setex/get"| REDIS
+    DEPS --> REDIS
+
+    AUTH_SVC -->|"send_verification_email.delay()<br/>send_password_reset_email.delay()"| EMAIL_TASKS
+    ORDER_SVC -->|"send_order_confirmation_email.delay()<br/>send_order_status_email.delay()"| EMAIL_TASKS
+
+    PAYMENT_SVC <-->|"PaymentIntent.create / Refund.create"| STRIPE
+
+    BEAT -->|"run_client_simulation"| SIM_TASKS
+    SIM_TASKS -->|"service-layer journey"| ORDER_SVC
+    EMAIL_TASKS -->|"celery queue: emails"| WORKER
+    SIM_TASKS -->|"celery queue: default"| WORKER
+    WORKER -->|"broker/backend db0"| REDIS
+    WORKER --> EMAIL_TASKS
+    EMAIL_TASKS --> SMTP
+
+    API -.->|"boto3 S3 client (available,<br/>images currently store plain URLs)"| MINIO
+    POSTGRES -.->|"pg_restore backup.dump on first init"| SEED
+    SEED --> POSTGRES
+
+    ROUTERS -.-> PROM
+    MW -.-> STRUCTLOG
+    API -.-> SENTRY

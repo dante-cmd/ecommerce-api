@@ -1,0 +1,131 @@
+
+sequenceDiagram
+    %% ==Checkout & Payment Sequence: guest browse → auth → cart → order → Stripe payment → webhook → fulfillment
+    autonumber
+    actor U as "Customer"
+    actor A as "Staff / Admin"
+    participant FE as "Frontend"
+    participant NG as "nginx (ecommerce-nginx)"
+    participant API as "FastAPI (ecommerce-api)"
+    participant DB as "Postgres (ecommerce-db)"
+    participant RD as "Redis (db1: blacklist)"
+    participant CW as "Celery Worker (emails queue)"
+    participant SM as "SMTP / Mailpit"
+    participant ST as "Stripe"
+
+    %% ============ 1. REGISTRATION & AUTH ============
+    Note over U,ST: 1. Registration & Email Verification
+    U->>FE: Register (email, password)
+    FE->>NG: POST /api/v1/auth/register
+    NG->>API: proxy → auth router
+    API->>API: AuthService.register (argon2/bcrypt hash)
+    API->>DB: INSERT User (role=customer, is_verified=false)
+    API-->>CW: send_verification_email.delay() (queue: emails)
+    CW->>SM: verification email (24h token, type=verify)
+    SM-->>U: verification link
+    U->>FE: Open link → POST /api/v1/auth/verify-email {token}
+    API->>API: decode token, type=verify
+    API->>DB: UPDATE User SET is_verified=true
+    API-->>U: 200 OK — account verified
+
+    Note over U,ST: 2. Login (JWT access + rotating refresh token)
+    U->>FE: Login (email, password)
+    FE->>NG: POST /api/v1/auth/login (rate limited 10/min)
+    NG->>API: AuthService.login
+    API->>DB: SELECT User by email
+    API->>API: verify password hash
+    API->>RD: refresh jti registered on logout/rotation only
+    API-->>FE: 200 {access_token (15min, type=access), refresh_token (7d, jti)}<br/>+ HttpOnly SameSite=strict cookie
+
+    Note over U,ST: 3. Token Refresh (rotation + Redis blacklist)
+    FE->>NG: POST /api/v1/auth/refresh (cookie / X-Refresh-Token header)
+    NG->>API: AuthService.refresh
+    API->>RD: GET token_blacklist: {jti}
+    alt jti blacklisted or invalid
+        API-->>FE: 401 Unauthorized
+    else valid
+        API->>RD: SETEX token_blacklist: {old_jti} (remaining TTL)
+        API-->>FE: new access_token + new refresh_token (rotated cookie)
+    end
+
+    %% ============ 2. CART ============
+    Note over U,ST: 4. Shopping Cart (guest session → user cart merge)
+    U->>FE: Add item to cart (guest)
+    FE->>NG: POST /api/v1/cart/items
+    NG->>API: CartService.add_item (signed cart_session_id cookie)
+    API->>DB: validate ProductVariant stock (stock_quantity ≥ qty)
+    API->>DB: INSERT/UPDATE CartItem
+    API-->>U: cart with subtotal
+
+    U->>FE: Login → POST /api/v1/cart/merge
+    API->>DB: fold guest cart items into user cart
+
+    %% ============ 3. ORDER CREATION ============
+    Note over U,ST: 5. Order Creation (stock decrement + totals)
+    U->>FE: Checkout → POST /api/v1/orders {shipping_address_id, coupon_code?}
+    FE->>NG: Bearer access token
+    NG->>API: OrderService.create_order
+    API->>DB: validate address belongs to user, load cart items
+    API->>DB: check stock → snapshot OrderItems (name, unit_price)<br/>→ DECREMENT ProductVariant.stock_quantity
+    API->>API: PricingService.calculate_order_totals<br/>(subtotal − SAVE10 discount + 8% tax + shipping: free ≥ $50 else $5)
+    API->>DB: INSERT Order (status=pending) → DELETE cart items
+    API-->>CW: send_order_confirmation_email.delay(order.id, total, email)
+    CW->>SM: "Your order is paid" email
+    API-->>FE: 201 OrderOut {order_id, status=pending, total}
+
+    %% ============ 4. PAYMENT ============
+    Note over U,ST: 6. Payment Intent (idempotency-guarded)
+    U->>FE: Pay → POST /api/v1/payments/intent {order_id}
+    FE->>NG: Bearer access token
+    NG->>API: PaymentService.create_payment_intent
+    API->>DB: order must be pending & owned by user
+    alt Payment already exists for order
+        API->>ST: retrieve existing PaymentIntent
+        ST-->>API: existing client_secret (no duplicate charge)
+    else first attempt
+        API->>ST: PaymentIntent.create(amount, currency, idempotency_key=uuid4())
+        ST-->>API: PaymentIntent (client_secret)
+        API->>DB: INSERT Payment (status=pending, provider_payment_id, unique idempotency_key)
+    end
+    API-->>FE: 200 {client_secret}
+
+    %% ============ 5. STRIPE WEBHOOK ============
+    Note over U,ST: 7. Stripe Webhook (async payment confirmation)
+    U->>ST: Confirm card payment (client-side Stripe.js)
+    ST->>NG: POST /api/v1/payments/webhook (Stripe-Signature header)
+    NG->>API: stripe.Webhook.construct_event (signature verification)
+    alt payment_intent.succeeded
+        API->>DB: Payment pending→succeeded<br/>Order pending→paid (VALID_TRANSITIONS)
+        API-->>CW: send_order_status_email.delay(order.id, paid)
+        CW->>SM: "Your order is paid" email
+    else payment_intent.payment_failed / charge.failed
+        API->>DB: Payment pending→failed (store failure_message)
+        API-->>U: customer retries payment or cancels order
+    end
+
+    %% ============ 6. FULFILLMENT ============
+    Note over U,ST: 8. Fulfillment by Staff / Admin (state machine)
+    A->>FE: PATCH /api/v1/orders/{id}/status (staff token)
+    FE->>NG: require_staff_or_admin
+    NG->>API: OrderService.update_status
+    API->>DB: validate transition<br/>(paid→processing→shipped→delivered / →refunded, →cancelled)
+    API->>DB: UPDATE Order status
+    API-->>CW: send_order_status_email.delay(order.id, new_status)
+    CW->>SM: status update email
+    API-->>A: 200 OrderOut
+
+    Note over U,ST: 9. Refund (admin, Stripe)
+    A->>FE: POST /api/v1/payments/orders/{id}/refund
+    API->>ST: Refund.create(charge_id)
+    ST-->>API: refund succeeded
+    API->>DB: Payment → refunded, Order → refunded
+    API-->>CW: send_order_status_email.delay(order.id, refunded)
+    CW->>SM: refund confirmation email
+
+    %% ============ 7. LOGOUT ============
+    Note over U,ST: 10. Logout (refresh token blacklisting)
+    U->>FE: Logout
+    FE->>NG: POST /api/v1/auth/logout
+    NG->>API: AuthService.logout
+    API->>RD: SETEX token_blacklist: {refresh_jti}
+    API-->>FE: 200 + delete refresh cookie
