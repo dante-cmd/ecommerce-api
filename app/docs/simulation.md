@@ -1,90 +1,112 @@
-# How to Summarize This Simulation Script
+# Client Simulation (simulation/simulate.py)
 
-Here's a step-by-step breakdown of what this simulation does:
+`simulation/simulate.py` is a standalone script that lives **outside the app**
+and runs **on the host** (never inside the containers). It exercises the
+e-commerce API the same way a real customer would: exclusively through HTTP
+calls to `API_URL` (default `http://localhost:8000`).
 
 ## Overview
-This script simulates a complete customer journey through an e-commerce API, from registration to order delivery.
 
----
+The script walks a complete customer journey from registration to order
+delivery, without touching the database, the service layer, Stripe, or SMTP.
 
-## Step-by-Step Process
-
-### **Setup & Configuration**
-1. **Mock external services** to run without real credentials:
-   - Captures emails locally instead of sending via SMTP
-   - Mocks Stripe payment calls with fake responses
-   - Uses fake Redis for token blacklisting
-
-2. **Creates test data** if database is empty:
-   - Generates sample product categories
-   - Creates demo products with variants
-   - Sets up inventory with sufficient stock
-
-### **Customer Journey Simulation**
+## Step-by-Step Flow
 
 | Step | Action | Description |
 |------|--------|-------------|
-| **0** | Guest cart (optional) | Randomly creates an abandoned guest cart (40% chance) |
-| **1** | Registration | Creates new customer account with email, password, name, phone |
-| **2** | Email Verification | Simulates user clicking verification link in email |
-| **3** | Login | Authenticates user and returns access token |
+| **1** | Registration | Creates a new customer account via `POST /api/v1/auth/register` |
+| **2** | Email Verification (optional) | If `--mailpit-url` is set, polls Mailpit for the verification email and "clicks" the link |
+| **3** | Login | Authenticates via `POST /api/v1/auth/login` and gets a JWT |
 | **4** | Address Creation | Creates a shipping address with random US location data |
-| **5** | Cart Addition | Adds 2 random products with quantities (1-3 each) |
-| **6** | Order Creation | Creates order with selected address and cart items |
-| **7** | Payment Intent | Creates Stripe payment intent (mocked) |
-| **8** | Payment Confirmation | Simulates Stripe webhook success notification |
-| **9** | Fulfillment Lifecycle | Updates order through processing → shipped → delivered |
+| **5** | Cart Addition | Picks 2 in-stock variants from the public catalog and adds them to the cart |
+| **6** | Order Creation | Creates an order from the cart (`POST /api/v1/orders`) |
+| **7** | Payment Intent | Creates a real Stripe payment intent via `POST /api/v1/payments/intent` |
+| **8** | Payment Confirmation | Signs a `payment_intent.succeeded` event and posts it to `POST /api/v1/payments/webhook` (what `stripe trigger` does); the order flips to `paid` |
+| **9** | Fulfillment Lifecycle | Logs in as the seeded admin and moves the order through `processing → shipped → delivered` |
 
----
+If step 7 or 8 is not possible (Stripe unreachable, or `STRIPE_WEBHOOK_SECRET`
+not set), the simulation warns and falls back to the admin marking the order
+`paid` through the status endpoint before the fulfillment lifecycle.
 
-## Key Technical Features
+## Key Points
 
-### **Email Capture**
-All emails are saved as HTML files in `app/scripts/mailbox/` instead of actually sending them.
+- **No mocks, no internals**: everything goes through the public HTTP API,
+  exactly like a browser or mobile client.
+- **Email verification is optional**: the API does not require a verified
+  email to log in or place orders, so without a Mailpit URL the step is
+  skipped with a note. To exercise it, start the optional service
+  (`docker compose --profile mailpit up -d`), point the API at it in `.env`
+  (`MAIL_SERVER=mailpit`, `MAIL_PORT=1025`, `MAIL_STARTTLS=False`,
+  `MAIL_SSL_TLS=False`) and set `MAILPIT_URL=http://localhost:8025` — the
+  script then "clicks" the real verification link from Mailpit.
+- **Stripe payment is real (with a graceful fallback)**: the payment intent is
+  created through the API, and the success webhook is a correctly signed
+  `payment_intent.succeeded` event (HMAC-SHA256 with `STRIPE_WEBHOOK_SECRET`,
+  the same scheme `stripe trigger` uses) — the app verifies the signature and
+  flips the order to `paid`. To run this locally you need Stripe reachable:
+  either real test keys, or the optional `stripe-mock` service
+  (`docker compose --profile stripe up -d`) plus
+  `STRIPE_API_BASE=http://stripe-mock:12111` and a webhook secret in `.env`.
+  Without it, the seeded admin registers the payment via the status endpoint
+  and the run continues.
+- **Defaults come from `.env`**: `MAILPIT_URL`, `SEED_ADMIN_EMAIL` /
+  `SEED_ADMIN_PASSWORD` and `STRIPE_WEBHOOK_SECRET` are read from the repo's
+  `.env` automatically; environment variables and CLI flags take precedence.
 
-### **Stripe Mocking**
-- `PaymentIntent.create` and `retrieve` are replaced with fake versions
-- Generates realistic-looking payment IDs without API calls
+## Running the Simulation
 
-### **Celery Configuration**
-Email tasks run synchronously (`task_always_eager = True`) so they execute immediately and can be captured by the mailbox.
+Start the stack first:
 
-### **Database Operations**
-- Uses async SQLAlchemy with connection pooling
-- Auto-creates sample products if none exist
-- Auto-restocks variants to minimum 50 units
+```bash
+docker compose up --build
+```
 
----
+Then, from the repo root (with the project's dependencies installed, e.g. the
+project venv or Poetry):
 
-## What You'll See in Output
+```bash
+python simulation/simulate.py
+
+# Custom API location
+python simulation/simulate.py --api-url http://localhost:8000
+
+# Also auto-verify the registration email via a local Mailpit
+MAILPIT_URL=http://localhost:8025 python simulation/simulate.py
+```
+
+## Configuration
+
+| Env var / flag | Default | Purpose |
+|----------------|---------|---------|
+| `API_URL` / `--api-url` | `http://localhost:8000` | Base URL of the API |
+| `ADMIN_EMAIL` / `--admin-email` | `SEED_ADMIN_EMAIL` from `.env`, else `admin@example.com` | Admin account (fallback payment + fulfillment) |
+| `ADMIN_PASSWORD` / `--admin-password` | `SEED_ADMIN_PASSWORD` from `.env`, else `Admin123!` | Admin password |
+| `MAILPIT_URL` / `--mailpit-url` | *(unset)* | Optional Mailpit API URL to auto-verify the registration email |
+| `STRIPE_WEBHOOK_SECRET` / `--webhook-secret` | *(unset)* | Optional Stripe webhook secret to sign the simulated `payment_intent.succeeded` event |
+
+## Expected Output
 
 ```
-1) Registering customer sim.client.xxxx@example.com...
-   User created: id=xxx
+1) Registering customer client.xxxx@example.com...
+   Registration accepted, verification email pending
 
-2) Simulating email verification...
-   Email verified: is_verified=True
+2) No Mailpit URL configured; skipping email verification
 
 3) Logging in...
-   Access token: xxxxxxxxx...
+   Logged in as user id=...
 
-4) Creating shipping address...
-   Address: 123 Main St, Springfield, IL 62701
+...
 
-5) Adding items to cart...
-   Cart items: 4
+7) Creating payment intent (Stripe)...
+   Payment intent: pi_...
 
-6) Creating order...
-   Order #xxx: total=$149.97, status=pending
-
-7) Creating payment intent...
-   Payment intent: pi_sim_xxxxxxxx
-
-8) Verifying payment (simulating Stripe webhook)...
-   Payment status: completed
+8) Simulating Stripe webhook (payment_intent.succeeded)...
+   Webhook delivered and verified: evt_sim_xxxxxxxx
    Order status: paid
 
-9) Simulating order fulfillment...
+9) Logging in as admin...
+
+10) Running the fulfillment lifecycle...
    Order status: processing
    Order status: shipped
    Order status: delivered
@@ -92,46 +114,8 @@ Email tasks run synchronously (`task_always_eager = True`) so they execute immed
 ==================================================
 SIMULATION COMPLETE
 ==================================================
-Customer:     sim.client.xxxx@example.com
-Order ID:     xxx
-Total:        $149.97
+Customer:     client.xxxx@example.com
+Order ID:     ...
+Total:        $...
 Final status: delivered
-Emails captured: 4
-  - Welcome to our store -> ['sim.client.xxxx@example.com']
-  - Order Confirmation #xxx -> ['sim.client.xxxx@example.com']
-  - Your order has shipped -> ['sim.client.xxxx@example.com']
-  - Your order has been delivered -> ['sim.client.xxxx@example.com']
 ```
-
----
-
-## Running the Simulation
-
-```bash
-python -m app.scripts.simulate_client
-
-# With custom mailbox directory
-python -m app.scripts.simulate_client --mailbox-dir ./my_mailbox
-```
-
----
-
-## Why This Simulation Is Useful
-
-| Purpose | Benefit |
-|---------|---------|
-| **Testing** | Validates entire flow end-to-end without external dependencies |
-| **Debugging** | Captures all emails and logs for inspection |
-| **Development** | Allows developers to test UI integration against local services |
-| **Demonstration** | Shows complete system behavior to stakeholders |
-| **Regression Testing** | Ensures changes don't break core customer flow |
-
----
-
-## Summary Formula
-
-**Title:** E-Commerce Customer Journey Simulation  
-**Goal:** Test complete user flow without external APIs  
-**Flow:** Register → Verify → Login → Address → Cart → Order → Pay → Fulfill  
-**Mocks:** Email (local), Stripe (fake), Redis (no-op)  
-**Output:** Console logs + captured emails in HTML format

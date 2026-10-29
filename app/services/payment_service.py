@@ -23,6 +23,8 @@ class PaymentService:
         self.payment_repo = PaymentRepository(session)
         self.user_repo = UserRepository(session)
         stripe.api_key = settings.stripe_secret_key
+        if settings.stripe_api_base:
+            stripe.api_base = settings.stripe_api_base
 
     async def _get_user_email(self, user_id: int) -> str:
         user = await self.user_repo.get_by_id(user_id)

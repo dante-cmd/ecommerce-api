@@ -129,9 +129,7 @@ Celery Task → Email / Stripe / Redis
 - Sistema de colas de tareas distribuidas.
 - Permite ejecutar operaciones pesadas o lentas fuera del request HTTP:
   - Envío de emails.
-  - Simulaciones y tareas programadas.
 - Soporta múltiples colas (`default`, `emails`, `orders`).
-- Celery Beat para tareas periódicas.
 
 ### 3.7. Autenticación y seguridad
 
@@ -195,8 +193,10 @@ Celery Task → Email / Stripe / Redis
 **Docker + Docker Compose**
 
 - Entornos reproducibles entre desarrollo y producción.
-- Docker Compose levanta 7+ servicios: API, worker, beat, PostgreSQL, Redis, MinIO y Nginx.
+- Docker Compose levanta los servicios de la app: API, worker, PostgreSQL, Redis, MinIO y Nginx.
 - Healthchecks y dependencias condicionales mejoran la robustez del arranque.
+- La simulación de cliente (`simulation/simulate.py`) corre en el host, fuera
+  de los contenedores, hablando con la API por HTTP.
 
 **Nginx**
 

@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
     stripe_webhook_secret: str = ""
+    # Override the Stripe API base URL to reach a local stripe-mock
+    # (e.g. http://stripe-mock:12111). Empty = real Stripe API.
+    stripe_api_base: str = ""
 
     # Storage
     minio_endpoint: str = "minio:9000"

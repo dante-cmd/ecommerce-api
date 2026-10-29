@@ -73,6 +73,40 @@ poetry install
 poetry run pytest
 ```
 
+## Simulación
+
+Con el stack levantado, un script independiente (fuera de la app y de los
+contenedores) ejercita la API por HTTP como un cliente real: registro, login,
+dirección, carrito, pedido, pago con Stripe (webhook firmado) y ciclo de
+fulfillment.
+
+```bash
+python simulation/simulate.py
+```
+
+Opcional: con el perfil `mailpit` activo (ver abajo), la simulación verifica
+automáticamente el email de registro usando `MAILPIT_URL`. Ver
+`app/docs/simulation.md`.
+
+## Servicios opcionales (perfiles)
+
+Dos helpers de desarrollo no arrancan por defecto; se activan con perfiles:
+
+```bash
+docker compose --profile mailpit up -d   # capturador SMTP
+docker compose --profile stripe up -d    # mock de la API de Stripe
+```
+
+- **mailpit**: expone la UI en http://localhost:8025 y SMTP en 1025. Para que
+  la API/worker entreguen ahí el correo, ajusta en `.env`:
+  `MAIL_SERVER=mailpit`, `MAIL_PORT=1025`, `MAIL_STARTTLS=False`,
+  `MAIL_SSL_TLS=False`. La simulación lo usa vía `MAILPIT_URL`.
+- **stripe-mock**: réplica local de la API de Stripe (puertos 12111/12112).
+  Apunta la app con `STRIPE_API_BASE=http://stripe-mock:12111` en `.env`.
+
+También puedes exportar `COMPOSE_PROFILES=mailpit,stripe` para activarlos en
+cada `docker compose up`.
+
 ## Seed y datos iniciales
 
 El proyecto incluye un backup de la base de datos en `docker/backup.dump` que se
@@ -119,6 +153,8 @@ app/
 ├── tasks/          # Celery
 ├── templates/      # emails Jinja2
 └── tests/
+
+simulation/         # script de simulación de cliente (se ejecuta fuera de Docker)
 ```
 
 ## Licencia
