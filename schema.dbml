@@ -1,0 +1,144 @@
+// E-commerce API schema — dbdiagram.io compatible (paste at https://dbdiagram.io/d)
+
+Table users {
+  id int [pk, increment]
+  email varchar(255) [unique, not null]
+  hashed_password varchar(255) [not null]
+  first_name varchar(100)
+  last_name varchar(100)
+  phone varchar(50)
+  avatar_url text
+  role varchar(20) [not null, default: 'customer']
+  is_active boolean [not null, default: false]
+  is_verified boolean [not null, default: false]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table addresses {
+  id int [pk, increment]
+  user_id int [ref: > users.id, not null]
+  label varchar(50)
+  street varchar(255) [not null]
+  city varchar(100) [not null]
+  state varchar(100) [not null]
+  postal_code varchar(20) [not null]
+  country varchar(100) [not null]
+  is_default boolean [not null, default: false]
+}
+
+Table categories {
+  id int [pk, increment]
+  name varchar(100) [unique, not null]
+  slug varchar(120) [unique, not null]
+  description text
+  parent_id int [ref: > categories.id]
+  is_active boolean [not null, default: true]
+}
+
+Table products {
+  id int [pk, increment]
+  name varchar(255) [not null]
+  slug varchar(255) [unique, not null]
+  description text
+  category_id int [ref: > categories.id, not null]
+  base_price decimal(12,2) [not null]
+  is_active boolean [not null, default: true]
+  rating_average decimal(3,2) [not null, default: 0.00]
+  rating_count int [not null, default: 0]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  search_vector text
+}
+
+Table product_variants {
+  id int [pk, increment]
+  product_id int [ref: > products.id, not null]
+  sku varchar(120) [unique, not null]
+  size varchar(50)
+  color varchar(50)
+  price_adjustment decimal(12,2) [not null, default: 0]
+  stock_quantity int [not null, default: 0, note: 'check: stock_quantity >= 0']
+  is_active boolean [not null, default: true]
+}
+
+Table product_images {
+  id int [pk, increment]
+  product_id int [ref: > products.id, not null]
+  url text [not null]
+  is_primary boolean [not null, default: false]
+  "order" int [not null, default: 0]
+}
+
+Table reviews {
+  id int [pk, increment]
+  product_id int [ref: > products.id, not null]
+  user_id int [ref: > users.id, not null]
+  rating int [not null, note: 'check: rating between 1 and 5']
+  comment text
+  is_verified_purchase boolean [not null, default: false]
+  created_at timestamptz [not null]
+}
+
+Table carts {
+  id int [pk, increment]
+  user_id int [ref: > users.id, unique]
+  session_id varchar(255) [unique]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table cart_items {
+  id int [pk, increment]
+  cart_id int [ref: > carts.id, not null]
+  variant_id int [ref: > product_variants.id, not null]
+  quantity int [not null, default: 1]
+  added_at timestamptz [not null]
+
+  indexes {
+    (cart_id, variant_id) [unique]
+  }
+}
+
+Table orders {
+  id int [pk, increment]
+  user_id int [ref: > users.id, not null]
+  status varchar(30) [not null, default: 'pending']
+  shipping_address text [not null]
+  subtotal decimal(12,2) [not null]
+  shipping_cost decimal(12,2) [not null, default: 0]
+  tax_amount decimal(12,2) [not null, default: 0]
+  discount_amount decimal(12,2) [not null, default: 0]
+  total decimal(12,2) [not null]
+  coupon_code varchar(50)
+  notes text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table order_items {
+  id int [pk, increment]
+  order_id int [ref: > orders.id, not null]
+  product_id int [ref: > products.id, not null]
+  variant_id int [ref: > product_variants.id]
+  product_name varchar(255) [not null]
+  variant_name varchar(255)
+  unit_price decimal(12,2) [not null]
+  quantity int [not null]
+  total_price decimal(12,2) [not null]
+}
+
+Table payments {
+  id int [pk, increment]
+  order_id int [ref: - orders.id, not null, unique]
+  provider varchar(50) [not null, default: 'stripe']
+  status varchar(30) [not null, default: 'pending']
+  amount decimal(12,2) [not null]
+  currency varchar(3) [not null, default: 'USD']
+  provider_payment_id varchar(255)
+  provider_charge_id varchar(255)
+  failure_message text
+  idempotency_key varchar(255) [unique]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
