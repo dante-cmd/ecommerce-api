@@ -160,9 +160,9 @@ Celery Task → Email / Stripe / Redis
 
 ### 3.9. Almacenamiento de archivos
 
-**MinIO + boto3**
+**RustFS + boto3**
 
-- MinIO es un object storage compatible con la API S3 de AWS.
+- RustFS es un object storage compatible con la API S3 de AWS, escrito en Rust.
 - Permite almacenar imágenes de productos de forma self-hosted en desarrollo y producción.
 - `boto3` facilita migrar a AWS S3 en producción sin cambios significativos.
 
@@ -193,7 +193,7 @@ Celery Task → Email / Stripe / Redis
 **Docker + Docker Compose**
 
 - Entornos reproducibles entre desarrollo y producción.
-- Docker Compose levanta los servicios de la app: API, worker, PostgreSQL, Redis, MinIO y Nginx.
+- Docker Compose levanta los servicios de la app: API, worker, PostgreSQL, Redis, RustFS y Nginx.
 - Healthchecks y dependencias condicionales mejoran la robustez del arranque.
 - La simulación de cliente (`simulation/simulate.py`) corre en el host, fuera
   de los contenedores, hablando con la API por HTTP.
@@ -237,7 +237,7 @@ Celery Task → Email / Stripe / Redis
 | Passwords | Hash con Argon2 (fallback bcrypt). |
 | Rate limiting | slowapi en `/register`, `/login`, `/password-reset-request`. |
 | Headers de seguridad | `X-Content-Type-Options`, `X-Frame-Options`, CSP, HSTS. |
-| Subida de archivos | Almacenamiento en MinIO/S3, no en disco local. |
+| Subida de archivos | Almacenamiento en RustFS/S3, no en disco local. |
 | Validación | Pydantic en todas las entradas. |
 
 ---
@@ -307,7 +307,7 @@ GitHub Actions ejecuta:
 | Cache/Broker | Redis | Unificado, rápido, versátil. |
 | Tareas | Celery | Escalable y probado. |
 | Pagos | Stripe | Estándar de la industria. |
-| Archivos | MinIO/S3 | Self-hosted y portable a AWS. |
+| Archivos | RustFS/S3 | Self-hosted y portable a AWS. |
 | Auth | JWT + Redis blacklist | Stateless con invalidación. |
 | Emails | fastapi-mail + Jinja2 | Plantillas HTML y SMTP. |
 | Contenedores | Docker Compose | Reproducibilidad local. |

@@ -1,6 +1,6 @@
 # E-commerce Backend
 
-Backend completo y production-ready de e-commerce construido con **FastAPI**, **PostgreSQL**, **Redis**, **Celery**, **MinIO** y **Stripe**.
+Backend completo y production-ready de e-commerce construido con **FastAPI**, **PostgreSQL**, **Redis**, **Celery**, **RustFS** y **Stripe**.
 
 ## Stack
 
@@ -9,7 +9,7 @@ Backend completo y production-ready de e-commerce construido con **FastAPI**, **
 - PostgreSQL 16 + Redis 7
 - Celery + Redis (colas y broker)
 - Stripe (pagos + webhooks)
-- MinIO (S3-compatible, imágenes)
+- RustFS (S3-compatible, imágenes)
 - Docker + Docker Compose
 - Nginx (reverse proxy)
 - Pytest + factory-boy
@@ -39,7 +39,7 @@ Servicios disponibles:
 |----------|-----|
 | API | http://localhost:8000 |
 | API docs | http://localhost:8000/docs |
-| MinIO console | http://localhost:9001 |
+| RustFS console | http://localhost:9001 |
 | Postgres | localhost:5432 |
 | Redis | localhost:6379 |
 
@@ -51,7 +51,7 @@ Ver `.env.example` para el listado completo. Las más importantes:
 - `SECRET_KEY`: clave para firmar JWT
 - `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`
 - `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND`
-- `MINIO_*`: configuración de storage
+- `RUSTFS_*`: configuración de storage
 
 ## Migraciones
 

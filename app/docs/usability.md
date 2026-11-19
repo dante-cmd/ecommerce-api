@@ -119,7 +119,7 @@ Invalida el refresh token actual (blacklist en Redis). También elimina la cooki
 
 ### 3.3. Imágenes de productos
 
-Las imágenes se almacenan en MinIO/S3. La URL pública de cada imagen viene incluida en el campo `image_url` del producto.
+Las imágenes se almacenan en RustFS/S3. La URL pública de cada imagen viene incluida en el campo `image_url` del producto.
 
 ---
 

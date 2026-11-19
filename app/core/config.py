@@ -54,13 +54,11 @@ class Settings(BaseSettings):
     stripe_api_base: str = ""
 
     # Storage
-    minio_endpoint: str = "minio:9000"
-    minio_root_user: str = "minioadmin"
-    minio_root_password: str = "minioadmin"
-    minio_bucket_name: str = "ecommerce-media"
-    minio_access_key: str = "minioadmin"
-    minio_secret_key: str = "minioadmin"
-    minio_use_ssl: bool = False
+    rustfs_endpoint: str = "rustfs:9000"
+    rustfs_bucket_name: str = "ecommerce-media"
+    rustfs_access_key: str = "rustfsadmin"
+    rustfs_secret_key: str = "rustfsadmin"
+    rustfs_use_ssl: bool = False
 
     # Observability
     sentry_dsn: str = ""

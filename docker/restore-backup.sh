@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Restore docker/backup.dump into the database on first container init.
 # Postgres runs this script (and any file in /docker-entrypoint-initdb.d)
 # only when the data directory is empty — i.e. the very first

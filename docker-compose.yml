@@ -32,37 +32,26 @@ services:
       timeout: 5s
       retries: 5
 
-  minio:
-    image: minio/minio:latest
-    container_name: ecommerce-minio
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: ecommerce-rustfs
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-    command: server /data --console-address ":9001"
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
     volumes:
-      - minio_data:/data
+      - rustfs_data:/data
     ports:
       - "9000:9000"
       - "9001:9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  createbuckets:
-    image: minio/mc:latest
-    container_name: ecommerce-createbuckets
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
-      /usr/bin/mc mb local/${MINIO_BUCKET_NAME:-ecommerce-media} || true;
-      /usr/bin/mc anonymous set download local/${MINIO_BUCKET_NAME:-ecommerce-media} || true;
-      exit 0;
-      "
 
   api:
     build:
@@ -83,10 +72,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
-      createbuckets:
-        condition: service_completed_successfully
     volumes:
       - ./app:/app/app
     command: >
@@ -111,7 +98,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
     volumes:
       - ./app:/app/app
@@ -162,7 +149,7 @@ services:
 
 volumes:
   postgres_data:
-  minio_data:
+  rustfs_data:
 
 
 # networks:

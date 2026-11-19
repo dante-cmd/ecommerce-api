@@ -284,7 +284,7 @@ async def _create_product(session: AsyncSession, data: dict, category_ids: dict)
 
 async def seed() -> None:
     async with SessionLocal() as session:
-        # Admin user
+        # Admin user if it doesn't exist
         admin = await session.execute(select(User).where(User.email == settings.seed_admin_email))
         if admin.scalar_one_or_none() is None:
             user = User(

@@ -37,4 +37,4 @@ Thumbs.db
 
 # Docker
 postgres_data/
-minio_data/
+rustfs_data/

@@ -72,7 +72,7 @@ flowchart TB
     subgraph DATA["Data Layer"]
         POSTGRES[("ecommerce-db<br/>Postgres 16 · :5432<br/>alembic migrations")]
         REDIS[("ecommerce-redis<br/>Redis 7 · :6379<br/>db0 = Celery broker/result<br/>db1 = token blacklist")]
-        MINIO[("ecommerce-minio<br/>S3-compatible storage :9000<br/>bucket: ecommerce-media")]
+        RUSTFS[("ecommerce-rustfs<br/>S3-compatible storage :9000<br/>bucket: ecommerce-media")]
     end
 
     %% ===================== ASYNC WORKERS =====================
@@ -153,7 +153,7 @@ flowchart TB
     WORKER --> EMAIL_TASKS
     EMAIL_TASKS --> SMTP
 
-    API -.->|"boto3 S3 client (available,<br/>images currently store plain URLs)"| MINIO
+    API -.->|"boto3 S3 client (available,<br/>images currently store plain URLs)"| RUSTFS
     POSTGRES -.->|"pg_restore backup.dump on first init"| SEED
     SEED --> POSTGRES
 

@@ -15,7 +15,7 @@ htmlcov
 .gitignore
 .github
 postgres_data
-minio_data
+rustfs_data
 .idea
 .vscode
 *.md
