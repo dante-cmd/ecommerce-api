@@ -14,10 +14,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db import Base
+from app.core.db import Base, TimestampMixin
 
 
-class Category(Base):
+class Category(Base, TimestampMixin):
     __tablename__ = "categories"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -33,7 +33,7 @@ class Category(Base):
     products: Mapped[list["Product"]] = relationship("Product", back_populates="category")
 
 
-class Product(Base):
+class Product(Base, TimestampMixin):
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -47,14 +47,6 @@ class Product(Base):
         Numeric(3, 2), default=0.0, server_default=text("0.00")
     )
     rating_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
     search_vector: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     category: Mapped["Category"] = relationship("Category", back_populates="products")
@@ -67,7 +59,7 @@ class Product(Base):
     reviews: Mapped[list["Review"]] = relationship("Review", back_populates="product")
 
 
-class ProductVariant(Base):
+class ProductVariant(Base, TimestampMixin):
     __tablename__ = "product_variants"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -84,7 +76,7 @@ class ProductVariant(Base):
     __table_args__ = (CheckConstraint("stock_quantity >= 0", name="ck_variant_stock_non_negative"),)
 
 
-class ProductImage(Base):
+class ProductImage(Base, TimestampMixin):
     __tablename__ = "product_images"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)

@@ -1,12 +1,10 @@
-from datetime import datetime, timezone
-
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db import Base
+from app.core.db import Base, TimestampMixin
 
 
-class User(Base):
+class User(Base, TimestampMixin):
     """User account model — represents both customers and admins.
 
     The `role` column distinguishes account types (e.g. "customer", "admin").
@@ -45,20 +43,6 @@ class User(Base):
     # account can be verified but later deactivated (or vice versa).
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    # Timestamp columns — always stored in UTC.
-    # Note: use a lambda, not datetime.now(timezone.utc) directly, so the
-    # default is evaluated per-row at insert time, not once at import time.
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
-    )
-
-    # onupdate fires on every UPDATE, keeping this as a "last modified" stamp.
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
-
     # Relationships
     # if you delete a user, you want to delete their addresses as well, hence the cascade="all, delete-orphan"
     # lazy="selectin" eagerly loads addresses with a second SELECT ... WHERE IN query —
@@ -76,7 +60,7 @@ class User(Base):
     cart: Mapped["Cart"] = relationship("Cart", back_populates="user", uselist=False)
 
 
-class Address(Base):
+class Address(Base, TimestampMixin):
     """A saved shipping/billing address belonging to a User.
 
     A user can store multiple addresses (e.g. "Home", "Work"); the optional

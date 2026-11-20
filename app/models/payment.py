@@ -1,13 +1,12 @@
 from decimal import Decimal
-from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db import Base
+from app.core.db import Base, TimestampMixin
 
 
-class Payment(Base):
+class Payment(Base, TimestampMixin):
     __tablename__ = "payments"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -22,13 +21,5 @@ class Payment(Base):
     provider_charge_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     failure_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     idempotency_key: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
 
     order: Mapped["Order"] = relationship("Order", back_populates="payment")
